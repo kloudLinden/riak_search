@@ -1,10 +1,10 @@
 {
-    schema, 
+    schema,
     [
         {version, "1.1"},
         {n_val, 3},
         {default_field, "value"},
-        {analyzer_factory, {erlang, text_analyzers, whitespace_analyzer_factory}}
+        {analyzer_factory, {erlang, text_analyzers, downcase_whitespace_analyzer_factory}}
     ],
     [
         %% Field names ending in "_num" are indexed as integers
@@ -53,7 +53,7 @@
         {dynamic_field, [
             {name, "*"},
             {type, string},
-            {analyzer_factory, {erlang, text_analyzers, whitespace_analyzer_factory}}
+            {analyzer_factory, {erlang, text_analyzers, downcase_whitespace_analyzer_factory}}
         ]}
     ]
 }.

@@ -8,6 +8,7 @@
 -export([
          standard_analyzer_factory/2,
          whitespace_analyzer_factory/2,
+         downcase_whitespace_analyzer_factory/2,
          noop_analyzer_factory/2,
          integer_analyzer_factory/2
         ]).
@@ -56,21 +57,21 @@ standard_termify(T, MinLength, Acc, ResultAcc) ->
         false ->
             TermBinary = list_to_binary(Term),
             NewResultAcc = [TermBinary|ResultAcc];
-        true -> 
+        true ->
             NewResultAcc = [skip|ResultAcc]
     end,
     standard(T, MinLength, [], NewResultAcc).
 
 
-is_stopword(Term) when length(Term) == 2 -> 
+is_stopword(Term) when length(Term) == 2 ->
     ordsets:is_element(Term, ["an", "as", "at", "be", "by", "if", "in", "is", "it", "no", "of", "on", "or", "to"]);
-is_stopword(Term) when length(Term) == 3 -> 
+is_stopword(Term) when length(Term) == 3 ->
     ordsets:is_element(Term, ["and", "are", "but", "for", "not", "the", "was"]);
-is_stopword(Term) when length(Term) == 4 -> 
+is_stopword(Term) when length(Term) == 4 ->
     ordsets:is_element(Term, ["into", "such", "that", "then", "they", "this", "will"]);
-is_stopword(Term) when length(Term) == 5 -> 
+is_stopword(Term) when length(Term) == 5 ->
     ordsets:is_element(Term, ["their", "there", "these"]);
-is_stopword(_Term) -> 
+is_stopword(_Term) ->
     false.
 
 %% @doc Tokenize incoming text using whitespace, return the list of
@@ -92,6 +93,37 @@ whitespace_termify(T, Acc, ResultAcc) ->
     Term = list_to_binary(lists:reverse(Acc)),
     whitespace(T, [], [Term|ResultAcc]).
 
+%% @doc Tokenize incoming text using whitespace and downcasing, return the list of
+%% tokens.
+downcase_whitespace_analyzer_factory(Text, _) ->
+    {ok, downcase_whitespace(Text, [], [])}.
+downcase_whitespace(<<H, T/binary>>, Acc, ResultAcc) when ?WHITESPACE(H) ->
+    downcase_whitespace_termify(T, Acc, ResultAcc);
+
+downcase_whitespace(<<H, T/binary>>, Acc, ResultAcc) when ?UPPERCHAR(H) ->
+    H1 = H + ($a - $A),
+    downcase_whitespace(T, [H1|Acc], ResultAcc);
+downcase_whitespace(<<H, T/binary>>, Acc, ResultAcc) when ?LOWERCHAR(H) orelse ?NUMBER(H) ->
+    downcase_whitespace(T, [H|Acc], ResultAcc);
+downcase_whitespace(<<$.,H,T/binary>>, Acc, ResultAcc) when ?UPPERCHAR(H) ->
+    H1 = H + ($a - $A),
+    downcase_whitespace(T, [H1,$.|Acc], ResultAcc);
+downcase_whitespace(<<$.,H,T/binary>>, Acc, ResultAcc) when ?LOWERCHAR(H) orelse ?NUMBER(H) ->
+    downcase_whitespace(T, [H,$.|Acc], ResultAcc);
+
+downcase_whitespace(<<H, T/binary>>, Acc, ResultAcc) ->
+    downcase_whitespace(T, [H|Acc], ResultAcc);
+downcase_whitespace(<<>>, Acc, ResultAcc) when length(Acc) > 0 ->
+    downcase_whitespace_termify(<<>>, Acc, ResultAcc);
+downcase_whitespace(<<>>, [], ResultAcc) ->
+    lists:reverse(ResultAcc).
+
+downcase_whitespace_termify(T, [], ResultAcc) ->
+    downcase_whitespace(T, [], ResultAcc);
+downcase_whitespace_termify(T, Acc, ResultAcc) ->
+    Term = list_to_binary(lists:reverse(Acc)),
+    downcase_whitespace(T, [], [Term|ResultAcc]).
+
 %% @doc Treat the incoming text as a single token.
 noop_analyzer_factory(Text, _) ->
     {ok, [Text]}.
@@ -112,7 +144,7 @@ integer(<<>>, _PadSize, [], ResultAcc) ->
 integer_termify(T, PadSize, [], ResultAcc) ->
     integer(T, PadSize, [], ResultAcc);
 integer_termify(T, PadSize, Acc, ResultAcc) ->
-    try 
+    try
         %% Ensure that we have a valid integer.
         Term = lists:reverse(Acc),
         _ValidInteger = list_to_integer(Term),
